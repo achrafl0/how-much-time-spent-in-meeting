@@ -20,13 +20,16 @@ interface Stats {
     meetingCount: number;
     totalCost: number | null;
   };
-  mostExpensiveMeeting: {
+  mostExpensiveMeetings: Array<{
     summary: string;
     date: Date;
+    startTime: Date;
+    endTime: Date;
+    attendees: string[];
     attendeeCount: number;
     duration: number;
     totalCost: number | null;
-  };
+  }>;
   colleagueTimeDistribution: Array<{
     email: string;
     hours: number;
