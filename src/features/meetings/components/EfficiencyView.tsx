@@ -35,6 +35,9 @@ interface WeekdayPattern {
   dayOfWeek: number;
   averageHours: number;
   totalMeetings: number;
+  minHours: number;
+  medianHours: number;
+  maxHours: number;
 }
 
 interface EfficiencyViewProps {
@@ -191,6 +194,12 @@ export function EfficiencyView({
                 <span className="font-medium">{DAYS[pattern.dayOfWeek]}</span>
                 <div className="text-sm text-muted-foreground">
                   <span>{formatHours(pattern.averageHours)} avg.</span>
+                  {" • "}
+                  <span>{formatHours(pattern.minHours)} min</span>
+                  {" • "}
+                  <span>{formatHours(pattern.medianHours)} med</span>
+                  {" • "}
+                  <span>{formatHours(pattern.maxHours)} max</span>
                   {" • "}
                   <span>{pattern.totalMeetings} meetings total</span>
                 </div>

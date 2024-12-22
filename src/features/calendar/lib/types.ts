@@ -34,6 +34,9 @@ export interface WeekdayPattern {
   dayOfWeek: number;
   averageHours: number;
   totalMeetings: number;
+  minHours: number;
+  maxHours: number;
+  medianHours: number;
 }
 
 export interface ColleagueMeeting {
@@ -70,6 +73,12 @@ export interface ProcessedStats {
   meetingTimePercentage: number;
   totalMeetingCost: number | null;
   topColleagues: Array<{
+    email: string;
+    totalHours: number;
+    meetingCount: number;
+    totalCost: number | null;
+  }>;
+  allColleagues: Array<{
     email: string;
     totalHours: number;
     meetingCount: number;

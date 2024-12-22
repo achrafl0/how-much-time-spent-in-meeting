@@ -88,7 +88,7 @@ function App() {
                 </TabsContent>
                 <TabsContent value="colleague">
                   <ColleagueView
-                    colleagues={stats.topColleagues}
+                    colleagues={stats.allColleagues}
                     startDate={startDate}
                     endDate={endDate}
                     selectedColleague={

@@ -8,7 +8,8 @@ export function formatName(name: string): string {
 
 // Format cost as a localized string with currency symbol
 export function formatCost(cost: number | null): string {
-  return cost ? `$${cost.toLocaleString()}` : "-";
+  // Round to 2 decimal places
+  return cost ? `$${cost.toFixed(2)}` : "-";
 }
 
 // Format hours with one decimal place

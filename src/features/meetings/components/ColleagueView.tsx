@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { MeetingHeatmap } from "./MeetingHeatmap";
+import { differenceInDays, eachDayOfInterval, format } from "date-fns";
 
 interface ColleagueMeeting {
   summary: string;
@@ -62,6 +63,74 @@ interface ColleagueViewProps {
   onColleagueSelect: (email: string) => void;
 }
 
+function calculateAverageMeetingsPerDay({
+  meetings,
+  startDate,
+  endDate,
+}: {
+  meetings: ColleagueMeeting[];
+  startDate: Date;
+  endDate: Date;
+}): number {
+  const meetingsByDay = meetings.reduce(
+    (acc, meeting) => {
+      const dateKey = meeting.date.toISOString().split("T")[0];
+      acc[dateKey] = (acc[dateKey] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  const totalDays = Math.abs(differenceInDays(endDate, startDate));
+  const totalMeetings = Object.values(meetingsByDay).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+
+  return totalDays ? totalMeetings / totalDays : 0;
+}
+
+function calculateMeetingsPerDayData({
+  meetings,
+  startDate,
+  endDate,
+}: {
+  meetings: ColleagueMeeting[];
+  startDate: Date;
+  endDate: Date;
+}): Array<{ date: Date; count: number }> {
+  // Sort meetings by date
+  const sortedMeetings = [...meetings].sort(
+    (a, b) => a.date.getTime() - b.date.getTime(),
+  );
+
+  // Get all days in the interval
+  const allDays = eachDayOfInterval({ start: startDate, end: endDate });
+
+  let cumulativeMeetings = 0;
+
+  return allDays.map((currentDate) => {
+    // Count meetings up to and including this date
+    while (
+      cumulativeMeetings < sortedMeetings.length &&
+      sortedMeetings[cumulativeMeetings].date <= currentDate
+    ) {
+      cumulativeMeetings++;
+    }
+
+    // Calculate days since start (add 1 to avoid division by zero)
+    const daysSinceStart = Math.max(
+      1,
+      differenceInDays(currentDate, startDate) + 1,
+    );
+
+    return {
+      date: currentDate,
+      count: cumulativeMeetings / daysSinceStart,
+    };
+  });
+}
+
 export function ColleagueView({
   colleagues,
   selectedColleague,
@@ -92,11 +161,81 @@ export function ColleagueView({
 
       {selectedColleague && (
         <>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Average Meetings per Day</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">
+                  {calculateAverageMeetingsPerDay({
+                    meetings: selectedColleague.meetings,
+                    startDate,
+                    endDate,
+                  }).toFixed(1)}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  meetings per working day
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
           <MeetingHeatmap
             data={selectedColleague.heatmapData}
             startDate={startDate}
             endDate={endDate}
           />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Average Meetings per Day Evolution</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Rolling average of meetings per day from start date until each
+                point
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={calculateMeetingsPerDayData({
+                      meetings: selectedColleague.meetings,
+                      startDate,
+                      endDate,
+                    })}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(date: Date) => format(date, "MMM d")}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tickFormatter={(value: number) => value.toFixed(2)}
+                      domain={[0, "auto"]}
+                    />
+                    <Tooltip
+                      labelFormatter={(date: Date) =>
+                        format(date, "MMM d, yyyy")
+                      }
+                      formatter={(value: number) => [
+                        `${value.toFixed(2)} meetings/day`,
+                        "Average meetings per day",
+                      ]}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#2563eb"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -172,35 +311,37 @@ export function ColleagueView({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {selectedColleague.meetings.map((meeting, index) => (
-                  <div key={index} className="border-b pb-4 last:border-0">
-                    <div className="flex justify-between mb-2">
-                      <span className="font-medium">{meeting.summary}</span>
-                      <span className="text-muted-foreground">
-                        {formatHours(meeting.duration)}
-                      </span>
+                {selectedColleague.meetings
+                  .sort((a, b) => b.duration - a.duration)
+                  .map((meeting, index) => (
+                    <div key={index} className="border-b pb-4 last:border-0">
+                      <div className="flex justify-between mb-2">
+                        <span className="font-medium">{meeting.summary}</span>
+                        <span className="text-muted-foreground">
+                          {formatHours(meeting.duration)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {meeting.date.toLocaleDateString()}
+                        {" • "}
+                        {meeting.startTime.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {" - "}
+                        {meeting.endTime.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {" • "}
+                        {meeting.isOneOnOne
+                          ? "One-on-one"
+                          : `${meeting.attendeeCount} attendees`}
+                        {" • "}
+                        {formatCost(meeting.totalCost)}
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">
-                      {meeting.date.toLocaleDateString()}
-                      {" • "}
-                      {meeting.startTime.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {" - "}
-                      {meeting.endTime.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {" • "}
-                      {meeting.isOneOnOne
-                        ? "One-on-one"
-                        : `${meeting.attendeeCount} attendees`}
-                      {" • "}
-                      {formatCost(meeting.totalCost)}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </CardContent>
           </Card>

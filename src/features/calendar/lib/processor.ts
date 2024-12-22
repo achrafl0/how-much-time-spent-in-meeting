@@ -138,27 +138,43 @@ function calculateWeekdayPatterns(
 ): WeekdayPattern[] {
   const patterns: Record<
     number,
-    { totalHours: number; days: number; meetings: number }
+    { totalHours: number; days: number; meetings: number; dailyHours: number[] }
   > = {};
 
   Object.values(eventsByDay).forEach((events) => {
     const dayOfWeek = events[0].startTime.getDay();
     if (!patterns[dayOfWeek]) {
-      patterns[dayOfWeek] = { totalHours: 0, days: 0, meetings: 0 };
+      patterns[dayOfWeek] = {
+        totalHours: 0,
+        days: 0,
+        meetings: 0,
+        dailyHours: [],
+      };
     }
-    patterns[dayOfWeek].totalHours += events.reduce(
-      (sum, event) => sum + event.duration,
-      0,
-    );
+    const dailyHours = events.reduce((sum, event) => sum + event.duration, 0);
+    patterns[dayOfWeek].totalHours += dailyHours;
     patterns[dayOfWeek].days += 1;
     patterns[dayOfWeek].meetings += events.length;
+    patterns[dayOfWeek].dailyHours.push(dailyHours);
   });
 
-  return Object.entries(patterns).map(([dayOfWeek, stats]) => ({
-    dayOfWeek: parseInt(dayOfWeek),
-    averageHours: stats.totalHours / stats.days,
-    totalMeetings: stats.meetings,
-  }));
+  return Object.entries(patterns).map(([dayOfWeek, stats]) => {
+    const sortedHours = stats.dailyHours.sort((a, b) => a - b);
+    const mid = Math.floor(sortedHours.length / 2);
+    const medianHours =
+      sortedHours.length % 2 === 0
+        ? (sortedHours[mid - 1] + sortedHours[mid]) / 2
+        : sortedHours[mid];
+
+    return {
+      dayOfWeek: parseInt(dayOfWeek),
+      averageHours: stats.totalHours / stats.days,
+      totalMeetings: stats.meetings,
+      minHours: Math.min(...stats.dailyHours),
+      maxHours: Math.max(...stats.dailyHours),
+      medianHours,
+    };
+  });
 }
 
 function calculateColleagueStats(
@@ -307,6 +323,9 @@ export function processEvents(
 
   return {
     totalMeetingHours: totalHours,
+    allColleagues: Object.values(colleagueStats).sort(
+      (a, b) => b.totalHours - a.totalHours,
+    ),
     totalWorkingHours,
     meetingTimePercentage: (totalHours / totalWorkingHours) * 100,
     totalMeetingCost,
